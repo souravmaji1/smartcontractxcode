@@ -1,0 +1,121 @@
+'use client';
+// components/EventTrackerForm.js
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const EventTrackerForm = () => {
+  const [contractAddress, setContractAddress] = useState('');
+  const [eventName, setEventName] = useState('');
+  const [recipientEmail, setRecipientEmail] = useState('');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState(null);
+  const [contractEvents, setContractEvents] = useState([]);
+
+  useEffect(() => {
+    const fetchContractEvents = async () => {
+      try {
+        if (contractAddress) {
+          const events = await getContractEvents(contractAddress);
+          setContractEvents(events);
+        }
+      } catch (error) {
+        setError('Failed to fetch contract events');
+      }
+    };
+
+    fetchContractEvents();
+  }, [contractAddress]);
+
+  const getContractEvents = async (address) => {
+    try {
+      const Apikey = "XB61QPDHJQA19IXP8TEEUJ83YTS4NY5BRH";
+      const polygonScanApiUrl = `https://api-testnet.polygonscan.com/api?module=contract&action=getabi&address=${address}&apikey=${Apikey}`;
+      const response = await axios.get(polygonScanApiUrl);
+
+      if (response.data.status === '1') {
+        const abi = JSON.parse(response.data.result);
+        const events = abi.filter((item) => item.type === 'event').map((item) => item.name);
+        return events;
+      } else {
+        throw new Error('Failed to fetch contract ABI from PolygonScan');
+      }
+    } catch (error) {
+      throw new Error(`Error getting contract events: ${error.message}`);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      // Make a request to the server to configure the event tracking
+      const response = await axios.post('/configure', {
+        contract: contractAddress,
+        event: eventName,
+        email: recipientEmail,
+      });
+
+      if (response.data.success) {
+        setMessage('Configuration successful');
+      } else {
+        setError(response.data.error);
+      }
+    } catch (error) {
+      setError('Failed to configure event tracking');
+    }
+  };
+
+  return (
+    <div className="bg-gray-100 p-8 rounded-md border border-gray-300 max-w-md mx-auto mt-8">
+      <h2 className="text-2xl font-semibold mb-6">Event Tracker Configuration</h2>
+      <form onSubmit={handleSubmit}>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-600">Contract Address:</label>
+          <input
+            type="text"
+            value={contractAddress}
+            onChange={(e) => setContractAddress(e.target.value)}
+            className="mt-1 p-2 w-full border rounded-md"
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-600">Select Event:</label>
+          <select
+            value={eventName}
+            onChange={(e) => setEventName(e.target.value)}
+            className="mt-1 p-2 w-full border rounded-md"
+          >
+            <option value="" disabled>
+              Select an event
+            </option>
+            {contractEvents.map((event) => (
+              <option key={event} value={event}>
+                {event}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-600">Recipient Email:</label>
+          <input
+            type="text"
+            value={recipientEmail}
+            onChange={(e) => setRecipientEmail(e.target.value)}
+            className="mt-1 p-2 w-full border rounded-md"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={!eventName}
+          className="bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600"
+        >
+          Configure Event Tracking
+        </button>
+      </form>
+      {message && <p className="mt-4 text-green-600">{message}</p>}
+      {error && <p className="mt-4 text-red-600">{error}</p>}
+    </div>
+  );
+};
+
+export default EventTrackerForm;
